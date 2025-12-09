@@ -12,8 +12,8 @@ fn get_current_timestamp() -> u64 {
         .as_secs()
 }
 
-pub async fn run_worker(data: Arc<AppState>) {
-    println!("Worker started and waiting for jobs...");
+pub async fn run_worker(worker_id: usize, data: Arc<AppState>) {
+    println!("[Worker {}] Started and waiting for jobs...", worker_id);
 
     loop {
         let next_job_id = {
@@ -22,7 +22,7 @@ pub async fn run_worker(data: Arc<AppState>) {
         };
 
         if let Some(id) = next_job_id {
-            println!("Processing job #{}", id);
+            println!("[Worker {}] Processing job #{}", worker_id, id);
 
             // Mark as Processing and set started_at timestamp
             {
@@ -46,7 +46,7 @@ pub async fn run_worker(data: Arc<AppState>) {
                         // Job failed
                         job.status = JobStatus::Failed;
                         job.failed_reason = Some("Simulated random failure".to_string());
-                        println!("Job #{} failed! (retry {}/{})", id, job.retry_count, job.max_retries);
+                        println!("[Worker {}] Job #{} failed! (retry {}/{})", worker_id, id, job.retry_count, job.max_retries);
 
                         // Retry logic: if under max_retries, re-queue the job
                         if job.retry_count < job.max_retries {
@@ -58,15 +58,15 @@ pub async fn run_worker(data: Arc<AppState>) {
                             // Re-enqueue for retry
                             let mut queue = data.queue.lock().unwrap();
                             queue.push_back(id);
-                            println!("Job #{} re-queued for retry {}/{}", id, job.retry_count, job.max_retries);
+                            println!("[Worker {}] Job #{} re-queued for retry {}/{}", worker_id, id, job.retry_count, job.max_retries);
                         } else {
-                            println!("Job #{} permanently failed after {} retries", id, job.retry_count);
+                            println!("[Worker {}] Job #{} permanently failed after {} retries", worker_id, id, job.retry_count);
                         }
                     } else {
                         // Job succeeded
                         job.status = JobStatus::Completed;
                         job.completed_at = Some(get_current_timestamp());
-                        println!("Job #{} completed successfully!", id);
+                        println!("[Worker {}] Job #{} completed successfully!", worker_id, id);
                     }
                 }
             }
