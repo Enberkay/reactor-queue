@@ -6,15 +6,25 @@ use crate::state::AppState;
 
 // POST /jobs
 pub async fn submit_job(
-    data: web::Data<Arc<AppState>>, 
+    data: web::Data<Arc<AppState>>,
     req: web::Json<JobRequest>
 ) -> impl Responder {
     let id = data.job_counter.fetch_add(1, Ordering::SeqCst);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
 
     let new_job = Job {
         id,
         name: req.name.clone(),
         status: JobStatus::Queued,
+        retry_count: 0,
+        max_retries: 3,
+        created_at: now,
+        started_at: None,
+        completed_at: None,
+        failed_reason: None,
     };
 
     {
